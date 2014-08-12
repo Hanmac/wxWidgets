@@ -294,6 +294,112 @@ void wxItemContainer::ResetItemClientObject(unsigned int n)
     }
 }
 
+
+
+//override functions from wxItemContainerImmutable
+unsigned int wxDelegatingItemContainer::wxDelegatingItemContainer::GetCount() const wxOVERRIDE
+{
+    EnsureSubContainer();
+    return m_itemcontainer->GetCount();
+}
+
+wxString wxDelegatingItemContainer::GetString(unsigned int n) const wxOVERRIDE
+{
+    EnsureSubContainer();
+    return m_itemcontainer->GetString(n);
+}
+
+void wxDelegatingItemContainer::SetString(unsigned int n, const wxString& s) wxOVERRIDE
+{
+    EnsureSubContainer();
+    m_itemcontainer->SetString(n,s);
+}
+
+void wxDelegatingItemContainer::SetSelection(int n) wxOVERRIDE
+{
+    EnsureSubContainer();
+    m_itemcontainer->SetSelection(n);
+}
+
+int wxDelegatingItemContainer::GetSelection() const wxOVERRIDE
+{
+    EnsureSubContainer();
+    return m_itemcontainer->GetSelection();
+}
+
+bool wxDelegatingItemContainer::IsSorted() const
+{
+    EnsureSubContainer();
+    return m_itemcontainer->IsSorted();
+}
+
+bool wxDelegatingItemContainer::AllowInsertWhileSorted() const
+{
+    return m_itemcontainer->AllowInsertWhileSorted();
+}
+
+wxClientDataType wxDelegatingItemContainer::GetClientDataType() const
+{
+    EnsureSubContainer();
+    return m_itemcontainer->GetClientDataType();
+}
+
+//override functions from wxItemContainer
+void wxDelegatingItemContainer::DoSetItemClientData(unsigned int n, void *clientData)
+{
+    EnsureSubContainer();
+    
+    if(HasClientObjectData())
+        m_itemcontainer->SetClientObject(n,reinterpret_cast<wxClientData *>(clientData));
+    else
+        m_itemcontainer->SetClientData(n,clientData);
+}
+
+void* wxDelegatingItemContainer::DoGetItemClientData(unsigned int n) const
+{
+    EnsureSubContainer();
+    return HasClientObjectData() ? m_itemcontainer->GetClientObject(n) : m_itemcontainer->GetClientData(n);
+}
+
+void wxDelegatingItemContainer::DoClear()
+{
+    EnsureSubContainer();
+    m_itemcontainer->Clear();
+}
+
+void wxDelegatingItemContainer::DoDeleteOneItem(unsigned int pos)
+{
+    EnsureSubContainer();
+    m_itemcontainer->Delete(pos);
+}
+
+int wxDelegatingItemContainer::DoInsertItems(const wxArrayStringsAdapter & items,
+                                             unsigned int pos,
+                                             void **clientData,
+                                             wxClientDataType type)
+{
+     EnsureSubContainer();
+     
+     wxArrayString array_items = items.AsArrayString();
+     if(IsSorted())
+     {
+         if(type == wxClientData_Object)
+             return m_itemcontainer->Append(array_items, reinterpret_cast<wxClientData **>(clientData));
+         else if(type == wxClientData_Void)
+             return m_itemcontainer->Append(array_items, clientData);
+         else
+             return m_itemcontainer->Append(array_items);
+     
+     } else {
+         if(type == wxClientData_Object)
+             return m_itemcontainer->Insert(array_items, pos, reinterpret_cast<wxClientData **>(clientData));
+         else if(type == wxClientData_Void)
+             return m_itemcontainer->Insert(array_items, pos, clientData);
+         else
+             return m_itemcontainer->Insert(array_items, pos);
+     }
+}
+
 // ============================================================================
 // wxControlWithItems implementation
 // ============================================================================

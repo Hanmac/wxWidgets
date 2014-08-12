@@ -380,6 +380,57 @@ private:
     wxClientDataType m_clientDataItemsType;
 };
 
+
+class WXDLLIMPEXP_CORE wxDelegatingItemContainer : public wxItemContainer
+{
+public:
+    wxDelegatingItemContainer(wxItemContainer* container = NULL) : m_itemcontainer(container) {}
+    virtual ~wxDelegatingItemContainer() {}
+
+    //override functions from wxItemContainerImmutable
+    virtual unsigned int GetCount() const wxOVERRIDE;
+
+    virtual wxString GetString(unsigned int n) const wxOVERRIDE;
+
+    virtual void SetString(unsigned int n, const wxString& s) wxOVERRIDE;
+
+    virtual void SetSelection(int n) wxOVERRIDE;
+
+    virtual int GetSelection() const wxOVERRIDE;
+
+    virtual bool IsSorted() const wxOVERRIDE;
+
+    virtual bool AllowInsertWhileSorted() const wxOVERRIDE;
+
+    virtual wxClientDataType GetClientDataType() const wxOVERRIDE;
+
+protected:
+    virtual void EnsureSubContainer() {};
+    void EnsureSubContainer() const
+    {const_cast<wxDelegatingItemContainer*>(this)->EnsureSubContainer();}
+
+    void Create(wxItemContainer* container) { m_itemcontainer = container; }
+
+    //override functions from wxItemContainer
+    virtual void DoSetItemClientData(unsigned int n, void *clientData) wxOVERRIDE;
+
+    virtual void *DoGetItemClientData(unsigned int n) const wxOVERRIDE;
+
+    virtual void DoClear() wxOVERRIDE;
+    virtual void DoDeleteOneItem(unsigned int pos) wxOVERRIDE;
+
+    virtual int DoInsertItems(const wxArrayStringsAdapter & items,
+                              unsigned int pos,
+                              void **clientData,
+                              wxClientDataType type) wxOVERRIDE;
+
+    //do nothing because its current type is ignored
+    virtual void SetClientDataType(wxClientDataType WXUNUSED(type)) wxOVERRIDE
+    {}
+
+    wxItemContainer* m_itemcontainer;
+};
+
 // Inheriting directly from a wxWindow-derived class and wxItemContainer
 // unfortunately introduces an ambiguity for all GetClientXXX() methods as they
 // are inherited twice: the "global" versions from wxWindow and the per-item
