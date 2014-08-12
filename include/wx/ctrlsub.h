@@ -42,7 +42,7 @@ public:
     bool IsEmpty() const { return GetCount() == 0; }
 
     virtual wxString GetString(unsigned int n) const = 0;
-    wxArrayString GetStrings() const;
+    virtual wxArrayString GetStrings() const;
     virtual void SetString(unsigned int n, const wxString& s) = 0;
 
     // finding string natively is either case sensitive or insensitive
@@ -139,22 +139,7 @@ private:
     int InsertItems(const wxArrayStringsAdapter& items,
                     unsigned int pos,
                     void **clientData,
-                    wxClientDataType type)
-    {
-        wxASSERT_MSG( !IsSorted(), wxT("can't insert items in sorted control") );
-
-        wxCHECK_MSG( pos <= GetCount(), wxNOT_FOUND,
-                     wxT("position out of range") );
-
-        // not all derived classes handle empty arrays correctly in
-        // DoInsertItems() and besides it really doesn't make much sense to do
-        // this (for append it could correspond to creating an initially empty
-        // control but why would anybody need to insert 0 items?)
-        wxCHECK_MSG( !items.IsEmpty(), wxNOT_FOUND,
-                     wxT("need something to insert") );
-
-        return DoInsertItems(items, pos, clientData, type);
-    }
+                    wxClientDataType type);
 
     int InsertItems(const wxArrayStringsAdapter& items, unsigned int pos)
     {
@@ -288,7 +273,8 @@ public:
     // they implement sorting, typically by returning HasFlag(wxXX_SORT)
     virtual bool IsSorted() const { return false; }
 
-
+    virtual bool AllowInsertWhileSorted() const { return false; }
+    
     // client data stuff
     // -----------------
 

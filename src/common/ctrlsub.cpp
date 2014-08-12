@@ -108,7 +108,7 @@ void wxItemContainer::Clear()
 
 void wxItemContainer::Delete(unsigned int pos)
 {
-    wxCHECK_RET( pos < GetCount(), wxT("invalid index") );
+    wxCHECK_RET( IsValid(pos), wxT("invalid index") );
 
     if ( HasClientObjectData() )
         ResetItemClientObject(pos);
@@ -124,6 +124,27 @@ void wxItemContainer::Delete(unsigned int pos)
 // ----------------------------------------------------------------------------
 //
 // ----------------------------------------------------------------------------
+
+int InsertItems(const wxArrayStringsAdapter& items,
+                    unsigned int pos,
+                    void **clientData,
+                    wxClientDataType type)
+{
+    wxASSERT_MSG( !IsSorted() || !AllowInsertWhileSorted(), wxT("can't insert items in sorted control") );
+
+    wxCHECK_MSG( IsValidInsert(pos), wxNOT_FOUND,
+                 wxT("position out of range") );
+
+    // not all derived classes handle empty arrays correctly in
+    // DoInsertItems() and besides it really doesn't make much sense to do
+    // this (for append it could correspond to creating an initially empty
+    // control but why would anybody need to insert 0 items?)
+    wxCHECK_MSG( !items.IsEmpty(), wxNOT_FOUND,
+                 wxT("need something to insert") );
+
+    return DoInsertItems(items, pos, clientData, type);
+}
+
 
 int wxItemContainer::DoInsertItemsInLoop(const wxArrayStringsAdapter& items,
                                          unsigned int pos,
