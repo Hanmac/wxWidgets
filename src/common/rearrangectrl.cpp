@@ -224,6 +224,9 @@ wxRearrangeCtrl::Create(wxWindow *parent,
                                  wxDefaultPosition, wxDefaultSize,
                                  order, items,
                                  style, validator);
+    
+    wxDelegatingItemContainer::Create(m_list);
+    
     wxButton * const btnUp = new wxButton(this, wxID_UP);
     wxButton * const btnDown = new wxButton(this, wxID_DOWN);
 
@@ -292,6 +295,8 @@ bool wxRearrangeDialog::Create(wxWindow *parent,
 
     m_ctrl = new wxRearrangeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                                  order, items);
+
+    wxDelegatingItemContainer::Create(m_ctrl);
 
     // notice that the items in this sizer should be inserted accordingly to
     // wxRearrangeDialogSizerPositions order

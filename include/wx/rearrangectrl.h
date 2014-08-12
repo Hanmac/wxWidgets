@@ -14,6 +14,7 @@
 
 #if wxUSE_REARRANGECTRL
 
+#include "wx/ctrlsub.h"
 #include "wx/panel.h"
 #include "wx/dialog.h"
 
@@ -119,7 +120,7 @@ private:
 // wxRearrangeCtrl: composite control containing a wxRearrangeList and buttons
 // ----------------------------------------------------------------------------
 
-class WXDLLIMPEXP_CORE wxRearrangeCtrl : public wxPanel
+class WXDLLIMPEXP_CORE wxRearrangeCtrl : public wxWindowWithItems<wxPanel, wxDelegatingItemContainer>
 {
 public:
     // ctors/Create function are the same as for wxRearrangeList
@@ -176,7 +177,7 @@ private:
 // wxRearrangeDialog: dialog containing a wxRearrangeCtrl
 // ----------------------------------------------------------------------------
 
-class WXDLLIMPEXP_CORE wxRearrangeDialog : public wxDialog
+class WXDLLIMPEXP_CORE wxRearrangeDialog : public wxWindowWithItems<wxDialog, wxDelegatingItemContainer>
 {
 public:
     // default ctor, use Create() later
