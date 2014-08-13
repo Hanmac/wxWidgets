@@ -648,11 +648,8 @@ wxSimpleHtmlListBox::~wxSimpleHtmlListBox()
 
 void wxSimpleHtmlListBox::DoClear()
 {
-    wxASSERT(m_items.GetCount() == m_HTMLclientData.GetCount());
-
-    m_items.Clear();
-    m_HTMLclientData.Clear();
-
+    wxSimpleItemContainer::DoClear();
+    
     UpdateCount();
 }
 
@@ -663,9 +660,7 @@ void wxSimpleHtmlListBox::Clear()
 
 void wxSimpleHtmlListBox::DoDeleteOneItem(unsigned int n)
 {
-    m_items.RemoveAt(n);
-
-    m_HTMLclientData.RemoveAt(n);
+    wxSimpleItemContainer::DoDeleteOneItem(n);
 
     UpdateCount();
 }
@@ -675,43 +670,22 @@ int wxSimpleHtmlListBox::DoInsertItems(const wxArrayStringsAdapter& items,
                                        void **clientData,
                                        wxClientDataType type)
 {
-    const unsigned int count = items.GetCount();
-
-    m_items.Insert(wxEmptyString, pos, count);
-    m_HTMLclientData.Insert(NULL, pos, count);
-
-    for ( unsigned int i = 0; i < count; ++i, ++pos )
-    {
-        m_items[pos] = items[i];
-        AssignNewItemClientData(pos, clientData, i, type);
-    }
+    int npos = wxSimpleItemContainer::DoInsertItems(items, pos, clientData, type);
 
     UpdateCount();
 
-    return pos - 1;
+    return npos;
 }
 
 void wxSimpleHtmlListBox::SetString(unsigned int n, const wxString& s)
 {
-    wxCHECK_RET( IsValid(n),
-                 wxT("invalid index in wxSimpleHtmlListBox::SetString") );
-
-    m_items[n]=s;
+    wxSimpleItemContainer::SetString(n, s);
     RefreshRow(n);
-}
-
-wxString wxSimpleHtmlListBox::GetString(unsigned int n) const
-{
-    wxCHECK_MSG( IsValid(n), wxEmptyString,
-                 wxT("invalid index in wxSimpleHtmlListBox::GetString") );
-
-    return m_items[n];
 }
 
 void wxSimpleHtmlListBox::UpdateCount()
 {
-    wxASSERT(m_items.GetCount() == m_HTMLclientData.GetCount());
-    wxHtmlListBox::SetItemCount(m_items.GetCount());
+    wxHtmlListBox::SetItemCount(GetCount());
 
     // very small optimization: if you need to add lot of items to
     // a wxSimpleHtmlListBox be sure to use the

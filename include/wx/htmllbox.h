@@ -196,7 +196,7 @@ private:
 #define wxHLB_MULTIPLE          wxLB_MULTIPLE
 
 class WXDLLIMPEXP_HTML wxSimpleHtmlListBox :
-    public wxWindowWithItems<wxHtmlListBox, wxItemContainer>
+    public wxWindowWithItems<wxHtmlListBox, wxSimpleItemContainer>
 {
     DECLARE_ABSTRACT_CLASS(wxSimpleHtmlListBox)
 public:
@@ -257,15 +257,6 @@ public:
     // accessing strings
     // -----------------
 
-    virtual unsigned int GetCount() const wxOVERRIDE
-        { return m_items.GetCount(); }
-
-    virtual wxString GetString(unsigned int n) const wxOVERRIDE;
-
-    // override default unoptimized wxItemContainer::GetStrings() function
-    wxArrayString GetStrings() const
-        { return m_items; }
-
     virtual void SetString(unsigned int n, const wxString& s) wxOVERRIDE;
 
     // resolve ambiguity between wxItemContainer and wxVListBox versions
@@ -275,12 +266,6 @@ protected:
     virtual int DoInsertItems(const wxArrayStringsAdapter & items,
                               unsigned int pos,
                               void **clientData, wxClientDataType type) wxOVERRIDE;
-
-    virtual void DoSetItemClientData(unsigned int n, void *clientData) wxOVERRIDE
-        { m_HTMLclientData[n] = clientData; }
-
-    virtual void *DoGetItemClientData(unsigned int n) const wxOVERRIDE
-        { return m_HTMLclientData[n]; }
 
     // wxItemContainer methods
     virtual void DoClear() wxOVERRIDE;
@@ -297,22 +282,15 @@ protected:
         { wxHtmlListBox::SetRowCount(count); }
 
     virtual wxString OnGetItem(size_t n) const wxOVERRIDE
-        { return m_items[n]; }
+        { return GetString(n); }
 
     virtual void InitEvent(wxCommandEvent& event, int n) wxOVERRIDE
         {
             // we're not a virtual control and we can include the string
             // of the item which was clicked:
-            event.SetString(m_items[n]);
+            event.SetString(GetString(n));
             wxVListBox::InitEvent(event, n);
         }
-
-    wxArrayString   m_items;
-    wxArrayPtrVoid  m_HTMLclientData;
-
-    // Note: For the benefit of old compilers (like gcc-2.8) this should
-    // not be named m_clientdata as that clashes with the name of an
-    // anonymous struct member in wxEvtHandler, which we derive from.
 
     wxDECLARE_NO_COPY_CLASS(wxSimpleHtmlListBox);
 };
