@@ -125,7 +125,7 @@ void wxItemContainer::Delete(unsigned int pos)
 //
 // ----------------------------------------------------------------------------
 
-int InsertItems(const wxArrayStringsAdapter& items,
+int wxItemContainer::InsertItems(const wxArrayStringsAdapter& items,
                     unsigned int pos,
                     void **clientData,
                     wxClientDataType type)
