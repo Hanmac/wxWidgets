@@ -400,6 +400,116 @@ int wxDelegatingItemContainer::DoInsertItems(const wxArrayStringsAdapter & items
      }
 }
 
+
+    //override functions from wxItemContainerImmutable
+unsigned int wxSimpleItemContainer::GetCount() const
+{
+    return m_strings.GetCount();
+}
+    
+wxString wxSimpleItemContainer::GetString(unsigned int n) const
+{
+    return IsValid(n) ? m_strings[n] : wxEmptyString;
+}
+    
+void wxSimpleItemContainer::SetString(unsigned int n, const wxString& s)
+{
+    m_strings[n] = s;
+}
+    
+void wxSimpleItemContainer::SetSelection(int n)
+{
+    m_selected = n;
+}
+    
+int wxSimpleItemContainer::GetSelection() const
+{
+    return m_selected;
+}
+
+//override functions from wxItemContainer
+void wxSimpleItemContainer::DoSetItemClientData(unsigned int n, void *clientData)
+{
+    //m_clientDatas.reserve(m_strings.GetCount());
+    m_clientDatas[n] = clientData;
+}
+
+void* wxSimpleItemContainer::DoGetItemClientData(unsigned int n) const
+{
+    return IsValid(n) && n < m_clientDatas.GetCount() ? m_clientDatas[n] : NULL;
+}
+    
+void wxSimpleItemContainer::DoClear()
+{
+    m_strings.Empty();
+    m_clientDatas.Empty();
+
+}
+
+void wxSimpleItemContainer::DoDeleteOneItem(unsigned int pos)
+{
+    // Remove client data, if set
+    if (pos < m_clientDatas.GetCount() )
+    {
+        m_clientDatas.RemoveAt(pos);
+    }
+
+    m_strings.RemoveAt(pos);
+}
+
+int wxSimpleItemContainer::DoInsertOneItem(const wxString& item, unsigned int pos)
+{
+
+    if(m_strings.Count() == 0)
+    {
+        m_strings.push_back(item);
+        m_clientDatas.push_back(NULL);
+        return 0;
+    }
+    
+    //Find position
+    // TODO: Could be optimized with binary search
+    wxArrayString strings = m_strings;
+    unsigned int i;
+    
+    for ( i=0; i<strings.GetCount(); i++ )
+    {
+        if ( item.CmpNoCase(strings.Item(i)) <= 0 )
+        {
+            pos = (int)i;
+            break;
+        }
+    }
+    
+    m_strings.Insert(item, pos, 1);
+    m_clientDatas.Insert(NULL, pos, 1);
+    
+    return pos;
+}
+
+int wxSimpleItemContainer::DoInsertItems(const wxArrayStringsAdapter & items,
+                          unsigned int pos,
+                          void **clientData,
+                          wxClientDataType type)
+{
+    if(IsSorted())
+        return DoInsertItemsInLoop(items, pos, clientData, type);
+    
+    
+    const unsigned int count = items.GetCount();
+    
+    m_strings.Insert(wxEmptyString, pos, count);
+    m_clientDatas.Insert(NULL, pos, count);
+    
+    for ( unsigned int i = 0; i < count; ++i, ++pos )
+    {
+        m_strings[pos] = items[i];
+        AssignNewItemClientData(pos, clientData, i, type);
+    }
+    
+    return pos - 1;
+}
+
 // ============================================================================
 // wxControlWithItems implementation
 // ============================================================================

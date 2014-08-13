@@ -431,6 +431,47 @@ protected:
     wxItemContainer* m_itemcontainer;
 };
 
+class WXDLLIMPEXP_CORE wxSimpleItemContainer : public wxItemContainer
+{
+public:
+
+    virtual ~wxSimpleItemContainer() {}
+    
+    //override functions from wxItemContainerImmutable
+    virtual unsigned int GetCount() const wxOVERRIDE;
+    
+    virtual wxString GetString(unsigned int n) const wxOVERRIDE;
+    
+    virtual void SetString(unsigned int n, const wxString& s) wxOVERRIDE;
+    
+    virtual void SetSelection(int n) wxOVERRIDE;
+    
+    virtual int GetSelection() const wxOVERRIDE;
+    
+    
+protected:
+    //override functions from wxItemContainer
+    virtual void DoSetItemClientData(unsigned int n, void *clientData) wxOVERRIDE;
+    
+    virtual void *DoGetItemClientData(unsigned int n) const wxOVERRIDE;
+    
+    virtual void DoClear() wxOVERRIDE;
+    
+    virtual void DoDeleteOneItem(unsigned int pos) wxOVERRIDE;
+
+    virtual int DoInsertOneItem(const wxString& item, unsigned int pos) wxOVERRIDE;
+    
+    virtual int DoInsertItems(const wxArrayStringsAdapter & items,
+                              unsigned int pos,
+                              void **clientData,
+                              wxClientDataType type) wxOVERRIDE;
+protected:
+
+    wxArrayString           m_strings;
+    wxArrayPtrVoid          m_clientDatas;
+    int                     m_selected;
+};
+
 // Inheriting directly from a wxWindow-derived class and wxItemContainer
 // unfortunately introduces an ambiguity for all GetClientXXX() methods as they
 // are inherited twice: the "global" versions from wxWindow and the per-item
