@@ -1140,7 +1140,7 @@ public:
 
         // call this first to ensure that the controls have a reasonable best
         // size before they're added
-        DoUpdateExtraControls(GetList()->GetSelection());
+        DoUpdateExtraControls(GetSelection());
 
         AddExtraControls(panel);
 
@@ -1195,7 +1195,7 @@ private:
             return;
 
         m_labels[m_sel] = m_text->GetValue();
-        GetList()->SetString(m_sel, m_labels[m_sel]);
+        SetString(m_sel, m_labels[m_sel]);
     }
 
     void OnReset(wxCommandEvent& WXUNUSED(event))
