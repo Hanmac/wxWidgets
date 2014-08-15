@@ -39,10 +39,46 @@
 extern
 WXDLLIMPEXP_DATA_CORE(const char) wxRearrangeListNameStr[] = "wxRearrangeList";
 
+/*
+
 BEGIN_EVENT_TABLE(wxRearrangeList, wxCheckListBox)
     EVT_CHECKLISTBOX(wxID_ANY, wxRearrangeList::OnCheck)
 END_EVENT_TABLE()
 
+//*/
+
+wxArrayString wxRearrangeListBase::orderItems(const wxArrayString& items, const wxArrayInt& order) const
+{
+    const size_t count = items.size();
+    wxArrayString itemsInOrder;
+    itemsInOrder.reserve(count);
+    for (size_t n = 0; n < count; n++ )
+    {
+        int idx = order[n];
+        if ( idx < 0 )
+            idx = -idx - 1;
+        itemsInOrder.push_back(items[idx]);
+    }
+    
+    return itemsInOrder;
+}
+
+void wxRearrangeListBase::checkOrder(const wxArrayInt& order)
+{
+    const size_t count = order.size();
+    // and now check all the items which should be initially checked
+    for (size_t n = 0; n < count; n++ )
+    {
+        if ( order[n] >= 0 )
+        {
+            // Be careful to call the base class version here and not our own
+            // which would also update m_order itself.
+            parentCheck(n);
+        }
+    }
+}
+
+/*
 bool wxRearrangeList::Create(wxWindow *parent,
                              wxWindowID id,
                              const wxPoint& pos,
@@ -58,76 +94,63 @@ bool wxRearrangeList::Create(wxWindow *parent,
     const size_t count = items.size();
     wxCHECK_MSG( order.size() == count, false, "arrays not in sync" );
 
-    wxArrayString itemsInOrder;
-    itemsInOrder.reserve(count);
-    size_t n;
-    for ( n = 0; n < count; n++ )
-    {
-        int idx = order[n];
-        if ( idx < 0 )
-            idx = -idx - 1;
-        itemsInOrder.push_back(items[idx]);
-    }
-
     // do create the real control
-    if ( !wxCheckListBox::Create(parent, id, pos, size, itemsInOrder,
+    if ( !wxCheckListBox::Create(parent, id, pos, size, orderItems(items, order),
                                  style, validator, name) )
         return false;
-
-    // and now check all the items which should be initially checked
-    for ( n = 0; n < count; n++ )
-    {
-        if ( order[n] >= 0 )
-        {
-            // Be careful to call the base class version here and not our own
-            // which would also update m_order itself.
-            wxCheckListBox::Check(n);
-        }
-    }
-
+    
+    checkOrder(order);
+    
     m_order = order;
 
     return true;
 }
+//*/
 
-bool wxRearrangeList::CanMoveCurrentUp() const
+bool wxRearrangeListBase::CanMoveCurrentUp() const
 {
-    const int sel = GetSelection();
+    const int sel = GetRearrangeListContainer()->GetSelection();
     return sel != wxNOT_FOUND && sel != 0;
 }
 
-bool wxRearrangeList::CanMoveCurrentDown() const
+bool wxRearrangeListBase::CanMoveCurrentDown() const
 {
-    const int sel = GetSelection();
-    return sel != wxNOT_FOUND && static_cast<unsigned>(sel) != GetCount() - 1;
+    const wxItemContainer *con = GetRearrangeListContainer();
+    const int sel = con->GetSelection();
+    return sel != wxNOT_FOUND && static_cast<unsigned>(sel) != con->GetCount() - 1;
 }
 
-bool wxRearrangeList::MoveCurrentUp()
+bool wxRearrangeListBase::MoveCurrentUp()
 {
-    const int sel = GetSelection();
-    if ( sel == wxNOT_FOUND || sel == 0 )
+    if ( !CanMoveCurrentUp() )
         return false;
+
+    wxItemContainer *con = GetRearrangeListContainer();
+    const int sel = con->GetSelection();
 
     Swap(sel, sel - 1);
-    SetSelection(sel - 1);
+    con->SetSelection(sel - 1);
 
     return true;
 }
 
-bool wxRearrangeList::MoveCurrentDown()
+bool wxRearrangeListBase::MoveCurrentDown()
 {
-    const int sel = GetSelection();
-    if ( sel == wxNOT_FOUND || static_cast<unsigned>(sel) == GetCount() - 1 )
+    if ( !CanMoveCurrentDown() )
         return false;
 
+    wxItemContainer *con = GetRearrangeListContainer();
+    const int sel = con->GetSelection();
+
     Swap(sel, sel + 1);
-    SetSelection(sel + 1);
+    con->SetSelection(sel + 1);
 
     return true;
 }
 
-void wxRearrangeList::Swap(int pos1, int pos2)
+void wxRearrangeListBase::Swap(int pos1, int pos2)
 {
+    wxItemContainer *con = GetRearrangeListContainer();
     // update the internally stored order
     wxSwap(m_order[pos1], m_order[pos2]);
 
@@ -135,17 +158,17 @@ void wxRearrangeList::Swap(int pos1, int pos2)
     // and now also swap all the attributes of the items
 
     // first the label
-    const wxString stringTmp = GetString(pos1);
-    SetString(pos1, GetString(pos2));
-    SetString(pos2, stringTmp);
+    const wxString stringTmp = con->GetString(pos1);
+    con->SetString(pos1, con->GetString(pos2));
+    con->SetString(pos2, stringTmp);
 
     // then the checked state
-    const bool checkedTmp = IsChecked(pos1);
-    wxCheckListBox::Check(pos1, IsChecked(pos2));
-    wxCheckListBox::Check(pos2, checkedTmp);
+    const bool checkedTmp = parentIsChecked(pos1);
+    parentCheck(pos1, parentIsChecked(pos2));
+    parentCheck(pos2, checkedTmp);
 
     // and finally the client data, if necessary
-    switch ( GetClientDataType() )
+    switch ( con->GetClientDataType() )
     {
         case wxClientData_None:
             // nothing to do
@@ -153,38 +176,39 @@ void wxRearrangeList::Swap(int pos1, int pos2)
 
         case wxClientData_Object:
             {
-                wxClientData * const dataTmp = DetachClientObject(pos1);
-                SetClientObject(pos1, DetachClientObject(pos2));
-                SetClientObject(pos2, dataTmp);
+                wxClientData * const dataTmp = con->DetachClientObject(pos1);
+                con->SetClientObject(pos1, con->DetachClientObject(pos2));
+                con->SetClientObject(pos2, dataTmp);
             }
             break;
 
         case wxClientData_Void:
             {
-                void * const dataTmp = GetClientData(pos1);
-                SetClientData(pos1, GetClientData(pos2));
-                SetClientData(pos2, dataTmp);
+                void * const dataTmp = con->GetClientData(pos1);
+                con->SetClientData(pos1, con->GetClientData(pos2));
+                con->SetClientData(pos2, dataTmp);
             }
             break;
     }
 }
 
-void wxRearrangeList::Check(unsigned int item, bool check)
+void wxRearrangeListBase::Check(unsigned int item, bool check)
 {
-    if ( check == IsChecked(item) )
+    if ( check == parentIsChecked(item) )
         return;
 
-    wxCheckListBox::Check(item, check);
+    parentCheck(item, check);
+    //wxCheckListBox::Check(item, check);
 
     m_order[item] = ~m_order[item];
 }
 
-void wxRearrangeList::OnCheck(wxCommandEvent& event)
+void wxRearrangeListBase::OnCheck(wxCommandEvent& event)
 {
     // update the internal state to match the new item state
     const int n = event.GetInt();
 
-    if ( (m_order[n] >= 0) != IsChecked(n) )
+    if ( (m_order[n] >= 0) != parentIsChecked(n) )
         m_order[n] = ~m_order[n];
 }
 
@@ -192,6 +216,7 @@ void wxRearrangeList::OnCheck(wxCommandEvent& event)
 // wxRearrangeCtrl implementation
 // ============================================================================
 
+/*
 BEGIN_EVENT_TABLE(wxRearrangeCtrl, wxPanel)
     EVT_UPDATE_UI(wxID_UP, wxRearrangeCtrl::OnUpdateButtonUI)
     EVT_UPDATE_UI(wxID_DOWN, wxRearrangeCtrl::OnUpdateButtonUI)
@@ -199,14 +224,15 @@ BEGIN_EVENT_TABLE(wxRearrangeCtrl, wxPanel)
     EVT_BUTTON(wxID_UP, wxRearrangeCtrl::OnButton)
     EVT_BUTTON(wxID_DOWN, wxRearrangeCtrl::OnButton)
 END_EVENT_TABLE()
+//*/
 
-void wxRearrangeCtrl::Init()
+void wxRearrangeCtrlBase::Init()
 {
     m_list = NULL;
 }
 
 bool
-wxRearrangeCtrl::Create(wxWindow *parent,
+wxRearrangeCtrlBase::Create(wxWindow *parent,
                         wxWindowID id,
                         const wxPoint& pos,
                         const wxSize& size,
@@ -220,12 +246,9 @@ wxRearrangeCtrl::Create(wxWindow *parent,
     if ( !wxPanel::Create(parent, id, pos, size, wxTAB_TRAVERSAL, name) )
         return false;
 
-    m_list = new wxRearrangeList(this, wxID_ANY,
-                                 wxDefaultPosition, wxDefaultSize,
-                                 order, items,
-                                 style, validator);
+    m_list = CreateList(order, items, style, validator);
     
-    wxDelegatingItemContainer::Create(m_list);
+    wxDelegatingItemContainer::Create(m_list->GetRearrangeListContainer());
     
     wxButton * const btnUp = new wxButton(this, wxID_UP);
     wxButton * const btnDown = new wxButton(this, wxID_DOWN);
@@ -236,22 +259,28 @@ wxRearrangeCtrl::Create(wxWindow *parent,
     sizerBtns->Add(btnDown, wxSizerFlags().Centre().Border(wxTOP));
 
     wxSizer * const sizerTop = new wxBoxSizer(wxHORIZONTAL);
-    sizerTop->Add(m_list, wxSizerFlags(1).Expand().Border(wxRIGHT));
+    sizerTop->Add(m_list->GetRearrangeListWindow(), wxSizerFlags(1).Expand().Border(wxRIGHT));
     sizerTop->Add(sizerBtns, wxSizerFlags(0).Centre().Border(wxLEFT));
     SetSizer(sizerTop);
 
-    m_list->SetFocus();
+    m_list->GetRearrangeListWindow()->SetFocus();
+
+    Bind(wxEVT_UPDATE_UI, &wxRearrangeCtrl::OnUpdateButtonUI, this, wxID_UP);
+    Bind(wxEVT_UPDATE_UI, &wxRearrangeCtrl::OnUpdateButtonUI, this, wxID_DOWN);
+    
+    Bind(wxEVT_BUTTON, &wxRearrangeCtrl::OnButton, this, wxID_UP);
+    Bind(wxEVT_BUTTON, &wxRearrangeCtrl::OnButton, this, wxID_DOWN);
 
     return true;
 }
 
-void wxRearrangeCtrl::OnUpdateButtonUI(wxUpdateUIEvent& event)
+void wxRearrangeCtrlBase::OnUpdateButtonUI(wxUpdateUIEvent& event)
 {
     event.Enable( event.GetId() == wxID_UP ? m_list->CanMoveCurrentUp()
                                            : m_list->CanMoveCurrentDown() );
 }
 
-void wxRearrangeCtrl::OnButton(wxCommandEvent& event)
+void wxRearrangeCtrlBase::OnButton(wxCommandEvent& event)
 {
     if ( event.GetId() == wxID_UP )
         m_list->MoveCurrentUp();
@@ -279,7 +308,7 @@ enum wxRearrangeDialogSizerPositions
 
 } // anonymous namespace
 
-bool wxRearrangeDialog::Create(wxWindow *parent,
+bool wxRearrangeDialogBase::Create(wxWindow *parent,
                                const wxString& message,
                                const wxString& title,
                                const wxArrayInt& order,
@@ -293,8 +322,7 @@ bool wxRearrangeDialog::Create(wxWindow *parent,
                            name) )
         return false;
 
-    m_ctrl = new wxRearrangeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                                 order, items);
+    m_ctrl = CreateCtrl(order, items);
 
     wxDelegatingItemContainer::Create(m_ctrl);
 
@@ -323,7 +351,7 @@ bool wxRearrangeDialog::Create(wxWindow *parent,
     return true;
 }
 
-void wxRearrangeDialog::AddExtraControls(wxWindow *win)
+void wxRearrangeDialogBase::AddExtraControls(wxWindow *win)
 {
     wxSizer * const sizer = GetSizer();
     wxCHECK_RET( sizer, "the dialog must be created first" );
@@ -339,14 +367,14 @@ void wxRearrangeDialog::AddExtraControls(wxWindow *win)
     sizer->SetSizeHints(this);
 }
 
-wxRearrangeList *wxRearrangeDialog::GetList() const
+wxRearrangeListBase *wxRearrangeDialogBase::GetList() const
 {
     wxCHECK_MSG( m_ctrl, NULL, "the dialog must be created first" );
 
     return m_ctrl->GetList();
 }
 
-wxArrayInt wxRearrangeDialog::GetOrder() const
+wxArrayInt wxRearrangeDialogBase::GetOrder() const
 {
     wxCHECK_MSG( m_ctrl, wxArrayInt(), "the dialog must be created first" );
 

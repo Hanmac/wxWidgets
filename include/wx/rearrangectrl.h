@@ -40,43 +40,13 @@ extern WXDLLIMPEXP_DATA_CORE(const char) wxRearrangeDialogNameStr[];
 // array ["first", "second", "third"] means that the items are displayed in the
 // order "second", "third", "first" and the "third" item is unchecked while the
 // other two are checked.
-class WXDLLIMPEXP_CORE wxRearrangeList : public wxCheckListBox
+
+class WXDLLIMPEXP_CORE wxRearrangeListBase
 {
 public:
-    // ctors and such
-    // --------------
+    wxRearrangeListBase() { }
+    virtual ~wxRearrangeListBase() { }
 
-    // default ctor, call Create() later
-    wxRearrangeList() { }
-
-    // ctor creating the control, the arguments are the same as for
-    // wxCheckListBox except for the extra order array which defines the
-    // (initial) display order of the items as well as their statuses, see the
-    // description above
-    wxRearrangeList(wxWindow *parent,
-                    wxWindowID id,
-                    const wxPoint& pos,
-                    const wxSize& size,
-                    const wxArrayInt& order,
-                    const wxArrayString& items,
-                    long style = 0,
-                    const wxValidator& validator = wxDefaultValidator,
-                    const wxString& name = wxRearrangeListNameStr)
-    {
-        Create(parent, id, pos, size, order, items, style, validator, name);
-    }
-
-    // Create() function takes the same parameters as the base class one and
-    // the order array determining the initial display order
-    bool Create(wxWindow *parent,
-                wxWindowID id,
-                const wxPoint& pos,
-                const wxSize& size,
-                const wxArrayInt& order,
-                const wxArrayString& items,
-                long style = 0,
-                const wxValidator& validator = wxDefaultValidator,
-                const wxString& name = wxRearrangeListNameStr);
 
 
     // items order
@@ -98,38 +68,129 @@ public:
 
 
     // Override this to keep our m_order array in sync with the real item state.
-    virtual void Check(unsigned int item, bool check = true) wxOVERRIDE;
+    virtual void Check(unsigned int item, bool check = true);
+
+    virtual wxItemContainer* GetRearrangeListContainer() = 0;
+    virtual const wxItemContainer* GetRearrangeListContainer() const = 0;
+    virtual wxWindow* GetRearrangeListWindow() = 0;
+    virtual const wxWindow* GetRearrangeListWindow() const = 0;
+
+protected:
+    virtual void parentCheck(unsigned int item, bool check = true) = 0;
+    virtual bool parentIsChecked(unsigned int item) const = 0;
 
 private:
     // swap two items at the given positions in the listbox
     void Swap(int pos1, int pos2);
 
+public:
     // event handler for item checking/unchecking
     void OnCheck(wxCommandEvent& event);
 
+protected:
+    wxArrayString orderItems(const wxArrayString& items, const wxArrayInt& order) const;
+
+    void checkOrder(const wxArrayInt& order);
 
     // the current order array
     wxArrayInt m_order;
 
-
-    DECLARE_EVENT_TABLE()
-    wxDECLARE_NO_COPY_CLASS(wxRearrangeList);
 };
+
+template <class W>
+class wxRearrangeListTpl : public W, public wxRearrangeListBase
+{
+public:
+    wxRearrangeListTpl() { }
+
+    // ctor creating the control, the arguments are the same as for
+    // wxCheckListBox except for the extra order array which defines the
+    // (initial) display order of the items as well as their statuses, see the
+    // description above
+    wxRearrangeListTpl(wxWindow *parent,
+                       wxWindowID id,
+                       const wxPoint& pos,
+                       const wxSize& size,
+                       const wxArrayInt& order,
+                       const wxArrayString& items,
+                       long style = 0,
+                       const wxValidator& validator = wxDefaultValidator,
+                       const wxString& name = wxRearrangeListNameStr)
+    {
+        Create(parent, id, pos, size, order, items, style, validator, name);
+    }
+
+    bool Create(wxWindow *parent,
+                wxWindowID id,
+                const wxPoint& pos,
+                const wxSize& size,
+                const wxArrayInt& order,
+                const wxArrayString& items,
+                long style,
+                const wxValidator& validator,
+                const wxString& name)
+{
+    // construct the array of items in the order in which they should appear in
+    // the control
+    const size_t count = items.size();
+    wxCHECK_MSG( order.size() == count, false, "arrays not in sync" );
+
+    // do create the real control
+    if ( !W::Create(parent, id, pos, size, orderItems(items, order),
+                                 style, validator, name) )
+        return false;
+
+    checkOrder(order);
+
+    bind_events();
+
+    m_order = order;
+
+    return true;
+};
+
+    using wxRearrangeListBase::Check;
+
+protected:
+    virtual void parentCheck(unsigned int item, bool check = true) { W::Check(item,check); }
+    virtual bool parentIsChecked(unsigned int item) const { return W::IsChecked(item); }
+
+    virtual wxItemContainer* GetRearrangeListContainer() { return this; }
+    virtual const wxItemContainer* GetRearrangeListContainer() const { return this; }
+    virtual wxWindow* GetRearrangeListWindow() { return this; }
+    virtual const wxWindow* GetRearrangeListWindow() const { return this; }
+
+    virtual void bind_events() {}
+};
+
+//wxEVT_CHECKLISTBOX
+
+template <>
+inline void wxRearrangeListTpl<wxCheckListBox>::bind_events()
+{
+    Bind(wxEVT_CHECKLISTBOX, &wxRearrangeListBase::OnCheck, this);
+}
+
+
+
+typedef wxRearrangeListTpl<wxCheckListBox> wxRearrangeList;
 
 // ----------------------------------------------------------------------------
 // wxRearrangeCtrl: composite control containing a wxRearrangeList and buttons
 // ----------------------------------------------------------------------------
 
-class WXDLLIMPEXP_CORE wxRearrangeCtrl : public wxWindowWithItems<wxPanel, wxDelegatingItemContainer>
+class WXDLLIMPEXP_CORE wxRearrangeCtrlBase : public wxWindowWithItems<wxPanel, wxDelegatingItemContainer>
 {
+
+
 public:
     // ctors/Create function are the same as for wxRearrangeList
-    wxRearrangeCtrl()
+    wxRearrangeCtrlBase()
     {
         Init();
     }
 
-    wxRearrangeCtrl(wxWindow *parent,
+    wxRearrangeCtrlBase(wxWindow *parent,
                     wxWindowID id,
                     const wxPoint& pos,
                     const wxSize& size,
@@ -155,37 +216,123 @@ public:
                 const wxString& name = wxRearrangeListNameStr);
 
     // get the underlying listbox
-    wxRearrangeList *GetList() const { return m_list; }
+    wxRearrangeListBase *GetList() const { return m_list; }
 
-private:
+protected:
+    virtual wxRearrangeListBase* CreateList(const wxArrayInt& order,
+                        const wxArrayString& items,
+                        long style,
+                        const wxValidator& validator) = 0;
+
+protected:
     // common part of all ctors
     void Init();
-
+private:
     // event handlers for the buttons
     void OnUpdateButtonUI(wxUpdateUIEvent& event);
     void OnButton(wxCommandEvent& event);
 
 
-    wxRearrangeList *m_list;
+    wxRearrangeListBase *m_list;
 
-
-    DECLARE_EVENT_TABLE()
-    wxDECLARE_NO_COPY_CLASS(wxRearrangeCtrl);
 };
+
+template <class W>
+class wxRearrangeCtrlTpl : public wxRearrangeCtrlBase
+{
+public:
+    wxRearrangeCtrlTpl()
+    {
+        Init();
+    }
+
+    wxRearrangeCtrlTpl(wxWindow *parent,
+                    wxWindowID id,
+                    const wxPoint& pos,
+                    const wxSize& size,
+                    const wxArrayInt& order,
+                    const wxArrayString& items,
+                    long style = 0,
+                    const wxValidator& validator = wxDefaultValidator,
+                    const wxString& name = wxRearrangeListNameStr)
+    {
+        Init();
+
+        Create(parent, id, pos, size, order, items, style, validator, name);
+    }
+
+protected:
+    virtual wxRearrangeListBase* CreateList(const wxArrayInt& order,
+                                            const wxArrayString& items,
+                                            long style,
+                                            const wxValidator& validator)
+    {
+        return new wxRearrangeListTpl<W>(this, wxID_ANY,
+                                         wxDefaultPosition, wxDefaultSize,
+                                         order, items,
+                                         style, validator);
+
+    }
+
+};
+
+typedef wxRearrangeCtrlTpl<wxCheckListBox> wxRearrangeCtrl;
 
 // ----------------------------------------------------------------------------
 // wxRearrangeDialog: dialog containing a wxRearrangeCtrl
 // ----------------------------------------------------------------------------
 
-class WXDLLIMPEXP_CORE wxRearrangeDialog : public wxWindowWithItems<wxDialog, wxDelegatingItemContainer>
+class WXDLLIMPEXP_CORE wxRearrangeDialogBase : public wxWindowWithItems<wxDialog, wxDelegatingItemContainer>
+{
+public:
+    wxRearrangeDialogBase() { Init(); }
+
+    bool Create(wxWindow *parent,
+                const wxString& message,
+                const wxString& title,
+                const wxArrayInt& order,
+                const wxArrayString& items,
+                const wxPoint& pos = wxDefaultPosition,
+                const wxString& name = wxRearrangeDialogNameStr);
+
+    // methods for the dialog customization
+
+    // add extra contents to the dialog below the wxRearrangeCtrl part: the
+    // given window (usually a wxPanel containing more control inside it) must
+    // have the dialog as its parent and will be inserted into it at the right
+    // place by this method
+    void AddExtraControls(wxWindow *win);
+
+    // return the wxRearrangeList control used by the dialog
+    wxRearrangeListBase *GetList() const;
+
+
+    // get the order of items after it was modified by the user
+    wxArrayInt GetOrder() const;
+
+protected:
+    // common part of all ctors
+    void Init() { m_ctrl = NULL; }
+
+    virtual wxRearrangeCtrlBase* CreateCtrl(const wxArrayInt& order,
+                                            const wxArrayString& items) = 0;
+
+private:
+    wxRearrangeCtrlBase *m_ctrl;
+
+    wxDECLARE_NO_COPY_CLASS(wxRearrangeDialogBase);
+};
+
+template <class W>
+class wxRearrangeDialogTpl : public wxRearrangeDialogBase
 {
 public:
     // default ctor, use Create() later
-    wxRearrangeDialog() { Init(); }
+    wxRearrangeDialogTpl() { Init(); }
 
     // ctor for the dialog: message is shown inside the dialog itself, order
     // and items are passed to wxRearrangeList used internally
-    wxRearrangeDialog(wxWindow *parent,
+    wxRearrangeDialogTpl(wxWindow *parent,
                       const wxString& message,
                       const wxString& title,
                       const wxArrayInt& order,
@@ -198,38 +345,19 @@ public:
         Create(parent, message, title, order, items, pos, name);
     }
 
-    bool Create(wxWindow *parent,
-                const wxString& message,
-                const wxString& title,
-                const wxArrayInt& order,
-                const wxArrayString& items,
-                const wxPoint& pos = wxDefaultPosition,
-                const wxString& name = wxRearrangeDialogNameStr);
+protected:
 
+    virtual wxRearrangeCtrlBase* CreateCtrl(const wxArrayInt& order,
+                                            const wxArrayString& items)
+    {
+        return new wxRearrangeCtrlTpl<W>(this, wxID_ANY,
+                                         wxDefaultPosition, wxDefaultSize,
+                                         order, items);
+    }
 
-    // methods for the dialog customization
-
-    // add extra contents to the dialog below the wxRearrangeCtrl part: the
-    // given window (usually a wxPanel containing more control inside it) must
-    // have the dialog as its parent and will be inserted into it at the right
-    // place by this method
-    void AddExtraControls(wxWindow *win);
-
-    // return the wxRearrangeList control used by the dialog
-    wxRearrangeList *GetList() const;
-
-
-    // get the order of items after it was modified by the user
-    wxArrayInt GetOrder() const;
-
-private:
-    // common part of all ctors
-    void Init() { m_ctrl = NULL; }
-
-    wxRearrangeCtrl *m_ctrl;
-
-    wxDECLARE_NO_COPY_CLASS(wxRearrangeDialog);
 };
+
+typedef wxRearrangeDialogTpl<wxCheckListBox> wxRearrangeDialog;
 
 #endif // wxUSE_REARRANGECTRL
 
